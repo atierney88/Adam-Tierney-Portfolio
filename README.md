@@ -1,0 +1,1 @@
+This portfolio is designed to present some of the various projects that I have worked on over the years. Each one will show a different objective that I intended on working on the improve my coding and data skills. A description is provided as well with each project. If you have any questions about any of the projects, feel free to contact me at ajtierney88@gmail.com. 
