@@ -1,3 +1,5 @@
+#Goal: Scrape a data table from a website and export it to an excel document
+
 #OVERALL DATAFRAME BASE
 
 import urllib.request
