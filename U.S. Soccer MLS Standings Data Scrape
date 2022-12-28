@@ -1,4 +1,5 @@
 #Goal: As a side project to work with the Data Analytics departmnet at U.S. Soccer, I was asked to scrape data from an MLS web page. The goal was to scrape a league standings table, but change the "year" to aggreagate all years together and output into a table.
+#Language: Python
 
 from urllib2 import urlopen
 from bs4 import BeautifulSoup
