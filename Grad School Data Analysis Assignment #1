@@ -1,0 +1,254 @@
+Goal: Read in the data and perform an exploratory data analysis to understand the data set as a whole as well as the variables within it.
+Language: R
+
+# a) Load the ggplot2 and gridExtra packages.
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+
+# b) Use read.csv() to read the abalones.csv into R, assigning the data frame to "mydata."
+
+mydata <- read.csv("abalones.csv", sep = ",", stringsAsFactors = TRUE)
+
+
+# c) Use the str() function to verify the structure of "mydata." You should have 1036 observations
+# of eight variables.
+
+str(mydata)
+
+# d) Define two new variables, VOLUME and RATIO. Use the following statements to define VOLUME and
+# RATIO as variables appended to the data frame "mydata."
+
+mydata$VOLUME <- mydata$LENGTH * mydata$DIAM * mydata$HEIGHT
+mydata$RATIO <- mydata$SHUCK / mydata$VOLUME
+
+```
+
+-----
+
+### Test Items starts from here - There are 6 sections - Total 50 points
+
+***##### Section 1: (6 points) Summarizing the data.***
+
+(1)(a) (1 point) Use *summary()* to obtain and present descriptive statistics from mydata.  Use *table()* to present a frequency table using CLASS and RINGS. There should be 115 cells in the table you present.  
+
+```{r Part_1a}
+summary(mydata)
+table(mydata$CLASS, mydata$RINGS)
+```
+
+**Question (1 point):  Briefly discuss the variable types and distributional implications such as potential skewness and outliers.**
+
+***Answer: Factor types like sex and class don't have an affect on the skewness/outliers of the data which is why we will look at the num types to see if that has any impact. WHOLE, SHUCK, RINGS AND VOLUME all have max numbers that are quite a bit away from their medians. These could be potential outliers and could skew the graph right.***
+
+(1)(b) (1 point) Generate a table of counts using SEX and CLASS. Add margins to this table (Hint: There should be 15 cells in this table plus the marginal totals. Apply *table()* first, then pass the table object to *addmargins()* (Kabacoff Section 7.2 pages 144-147)).  Lastly, present a barplot of these data; ignoring the marginal totals.  
+
+```{r Part_1b}
+sexclass<-table(mydata$SEX, mydata$CLASS)
+addmargins(sexclass)
+barplot(height = sexclass,                      
+        beside = TRUE, legend = TRUE, col = terrain.colors(3), main="Class membership, Sex-differentiated", ylab = "Frequencies")
+```
+
+**Essay Question (2 points):  Discuss the sex distribution of abalones.  What stands out about the distribution of abalones by CLASS?**
+
+***Answer: As classes increase, it seems like the age increases as A1 and A2 have the largest infant numbers and then decreases as classes increase. There might need to be a deeper dive to look at if infants are not zero in what is to be perceived as older classes. Additionally, males and females are never far apart from each other and appear to have a strong correlation. ***
+
+(1)(c) (1 point) Select a simple random sample of 200 observations from "mydata" and identify this sample as "work." Use *set.seed(123)* prior to drawing this sample. Do not change the number 123. Note that *sample()* "takes a sample of the specified size from the elements of x." We cannot sample directly from "mydata." Instead, we need to sample from the integers, 1 to 1036, representing the rows of "mydata." Then, select those rows from the data frame (Kabacoff Section 4.10.5 page 87). 
+
+Using "work", construct a scatterplot matrix of variables 2-6 with *plot(work[, 2:6])* (these are the continuous variables excluding VOLUME and RATIO). The sample "work" will not be used in the remainder of the assignment. 
+
+```{r Part_1c}
+set.seed(123)
+work<-mydata[sample(x=1:nrow(mydata),size=200, replace=FALSE),]
+plot(work[, 2:6])
+
+```
+
+-----
+
+***##### Section 2: (5 points) Summarizing the data using graphics.***
+
+(2)(a) (1 point) Use "mydata" to plot WHOLE versus VOLUME. Color code data points by CLASS.
+
+```{r Part_2a}
+ggplot(mydata, aes(x=WHOLE, y=VOLUME, color=CLASS)) +
+  geom_point(size=2, shape=23) + ggtitle("Whole weight, in grams | Volume, cm^3")
+
+```
+
+
+(2)(b) (2 points) Use "mydata" to plot SHUCK versus WHOLE with WHOLE on the horizontal axis. Color code data points by CLASS. As an aid to interpretation, determine the maximum value of the ratio of SHUCK to WHOLE.  Add to the chart a straight line with zero intercept using this maximum value as the slope of the line. If you are using the 'base R' *plot()* function, you may use *abline()* to add this line to the plot. Use *help(abline)* in R to determine the coding for the slope and intercept arguments in the functions. If you are using ggplot2 for visualizations, *geom_abline()* should be used.
+
+```{r Part_2b}
+ggplot(mydata, aes(x=WHOLE, y=SHUCK, color=CLASS)) +
+  geom_point(size=2, shape=23) + ggtitle("Whole weight, in grams | Shuck") + geom_abline(intercept = 0, slope = max((mydata$SHUCK)/(mydata$WHOLE)))
+
+```
+
+**Essay Question (2 points):  How does the variability in this plot differ from the plot in (a)?  Compare the two displays.  Keep in mind that SHUCK is a part of WHOLE.  Consider the location of the different age classes.**
+
+***Answer: The values are a more condensed showing that this correlation is higher than the first graph. The two graphs have a similar grouping of classes such as A1 being closer to the origin, but one clear difference is the A5 class that is fairly spread out in the first chart, but below most points in the second chart. Then finally, the first graph doesn't appear to have a clear class that has the highest ratio, but in the second chart A3 appears to be the highest and follow just below that line.***
+
+-----
+
+***### Section 3: (8 points) Getting insights about the data using graphs.***
+
+(3)(a) (2 points) Use "mydata" to create a multi-figured plot with histograms, boxplots and Q-Q plots of RATIO differentiated by sex. This can be done using *par(mfrow = c(3,3))* and base R or *grid.arrange()* and ggplot2. The first row would show the histograms, the second row the boxplots and the third row the Q-Q plots. Be sure these displays are legible.  
+
+```{r Part_3a, fig.height=8, fig.width=8}
+m<-mydata[mydata$SEX=="M", "RATIO"]
+i<-mydata[mydata$SEX=="I", "RATIO"]
+f<-mydata[mydata$SEX=="F", "RATIO"]
+
+par(mfrow = c(3,3))
+hist(f, col="red", main="Female RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+hist(i, col="green", main="Infant RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+hist(m, col="blue", main="Male RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+
+boxplot(f, col="red", main="Female RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+boxplot(i, col="green", main="Infant RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+boxplot(m, col="blue", main="Male RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+
+qqnorm(f, col="red", main="Female RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+qqline(f, col = "black", lwd = 2)
+qqnorm(i, col="green", main="Infant RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+qqline(i, col = "black", lwd = 2)
+qqnorm(m, col="blue", main="Male RATIO", cex.main=2, cex.axis=1.5,cex.lab=1.5)
+qqline(m, col = "black", lwd = 2)
+```
+
+**Essay Question (2 points): Compare the displays.  How do the distributions compare to normality? Take into account the criteria discussed in the sync sessions to evaluate non-normality.**
+
+***Answer: For all three classes, they appear to be normally distributed until the ratio is higher towards the right side of the graph. Each one has a right skew with a few points that are candidates to be outliers which is proven in the boxplots. Infants appear to have more outliers than females and males***
+
+(3)(b) (2 points) The boxplots in (3)(a) indicate that there are outlying RATIOs for each sex. *boxplot.stats()* can be used to identify outlying values of a vector. Present the abalones with these outlying RATIO values along with their associated variables in "mydata". Display the observations by passing a data frame to the kable() function. Basically, we want to output those rows of "mydata" with an outlying RATIO, but we want to determine outliers looking separately at infants, females and males.
+
+```{r Part_3b}
+female_outliers <- boxplot.stats(x = mydata[mydata$SEX == "F", "RATIO"])$out
+female_out_rows <- mydata[(mydata$SEX == "F") & (mydata$RATIO %in% female_outliers), ]
+infant_outliers <- boxplot.stats(x = mydata[mydata$SEX == "I", "RATIO"])$out
+infant_out_rows <- mydata[(mydata$SEX == "I") & (mydata$RATIO %in% infant_outliers), ]
+male_outliers <- boxplot.stats(x = mydata[mydata$SEX == "M", "RATIO"])$out
+male_out_rows <- mydata[(mydata$SEX == "M") & (mydata$RATIO %in% male_outliers), ]
+
+all_out_rows <- rbind(female_out_rows, infant_out_rows, male_out_rows)
+kable(all_out_rows)
+```
+
+**Essay Question (2 points):  What are your observations regarding the results in (3)(b)?**
+
+***Answer: Infants and Females have more outliers than the Male class does, but when looking at the exact ratio values, Female has 2 possible extreme outliers, one at either end of the scale and Infants have a few extreme outliers with some similar ratio numbers, but when looking the specific shuck and volume values, they are extremely low. ***
+
+-----
+
+***### Section 4: (8 points) Getting insights about possible predictors.***
+
+(4)(a) (3 points) With "mydata," display side-by-side boxplots for VOLUME and WHOLE, each differentiated by CLASS There should be five boxes for VOLUME and five for WHOLE. Also, display side-by-side scatterplots:  VOLUME and WHOLE versus RINGS. Present these four figures in one graphic:  the boxplots in one row and the scatterplots in a second row. Base R or ggplot2 may be used.
+
+
+```{r Part_4a, fig.height= 5}
+par(mfrow = c(2,2))
+boxplot(mydata$VOLUME~mydata$CLASS, xlab = "CLASS", ylab = "VOLUME")
+boxplot(mydata$WHOLE~mydata$CLASS,xlab="CLASS", ylab = "WHOLE")
+plot(mydata$RINGS,mydata$VOLUME, xlab = "RINGS", ylab = "VOLUME")
+plot(mydata$RINGS,mydata$WHOLE, xlab = "RINGS", ylab = "WHOLE")
+```
+
+**Essay Question (5 points) How well do you think these variables would perform as predictors of age?  Explain.**
+
+***Answer: Rings, Volume and Whole all have upward trajectories as age increases which means that they are good estimators of age. You can see this in the scatterplots where more rings means a higher age and whole and volume appear to increase as well. Classes do seem to help, but one of the earlier charts had infants in "older" classes so that determination needs to be looked at.***
+
+-----
+
+***### Section 5: (12 points) Getting insights regarding different groups in the data.***
+
+(5)(a) (2 points) Use *aggregate()* with "mydata" to compute the mean values of VOLUME, SHUCK and RATIO for each combination of SEX and CLASS. Then, using *matrix()*, create matrices of the mean values. Using the "dimnames" argument within *matrix()* or the *rownames()* and *colnames()* functions on the matrices, label the rows by SEX and columns by CLASS. Present the three matrices (Kabacoff Section 5.6.2, p. 110-111). The *kable()* function is useful for this purpose.  You do not need to be concerned with the number of digits presented.
+
+```{r Part_5a}
+mean_vol <- aggregate(VOLUME ~ SEX + CLASS, data=mydata, FUN = mean)
+print('$Volume')
+matrix(data = round(mean_vol$VOLUME, 3), nrow = 3, byrow = FALSE, 
+       dimnames = list(c("Female", "Infant", "Male"), levels(mydata$CLASS)))
+
+mean_shuck <- aggregate(SHUCK ~ SEX + CLASS, data=mydata, FUN = mean)
+print("$Shuck")
+matrix(data = round(mean_shuck$SHUCK, 3), nrow = 3, byrow = FALSE, 
+       dimnames = list(c("Female", "Infant", "Male"), levels(mydata$CLASS)))
+
+mean_ratio <- aggregate(RATIO ~ SEX + CLASS, data=mydata, FUN = mean)
+print("$Ratio")
+matrix(data = round(mean_ratio$RATIO, 3), nrow = 3, byrow = FALSE, 
+       dimnames = list(c("Female", "Infant", "Male"), levels(mydata$CLASS)))
+
+
+
+```
+
+(5)(b) (3 points) Present three graphs. Each graph should include three lines, one for each sex. The first should show mean RATIO versus CLASS; the second, mean VOLUME versus CLASS; the third, mean SHUCK versus CLASS. This may be done with the 'base R' *interaction.plot()* function or with ggplot2 using *grid.arrange()*.
+
+```{r Part_5b, fig.width = 9}
+interaction.plot(x.factor = mydata$CLASS, trace.factor = mydata$SEX,
+                  response = mydata$VOLUME, fun = mean, ylab = "VOLUME", xlab = "CLASS", 
+                 col = c("blue", "black", "red"), lty = 1, lwd = 2, trace.label = "SEX", 
+                 main= "Mean Volume per Class")
+
+interaction.plot(x.factor = mydata$CLASS, trace.factor = mydata$SEX,
+                  response = mydata$RATIO, fun = mean, ylab = "RATIO", xlab = "CLASS", 
+                 col = c("blue", "black", "red"), lty = 1, lwd = 2, trace.label = "SEX", 
+                 main= "Mean Ratio per Class")
+
+interaction.plot(x.factor = mydata$CLASS, trace.factor = mydata$SEX,
+                  response = mydata$SHUCK, fun = mean, ylab = "SHUCK", xlab = "CLASS", 
+                 col = c("blue", "black", "red"), lty = 1, lwd = 2, trace.label = "SEX", 
+                 main= "Mean Shuck per Class")
+                 
+
+```
+
+**Essay Question (2 points):  What questions do these plots raise?  Consider aging and sex differences.**
+
+***Answer: In terms of age, it is interesting to know why ratio decreases with age as volume and shuck go up. Additionally that is the only one where males and females are close together while in volume and shuck, females are the clear leader in each of those categories. Then finally in terms of age class, the peaks at each graph do pose interesting questions as to why that age group is peaking at those points. Each of these distinctions poses questions as to why these events are occuring and could lead to further research.***
+
+5(c) (3 points) Present four boxplots using *par(mfrow = c(2, 2)* or *grid.arrange()*. The first line should show VOLUME by RINGS for the infants and, separately, for the adult; factor levels "M" and "F," combined. The second line should show WHOLE by RINGS for the infants and, separately, for the adults. Since the data are sparse beyond 15 rings, limit the displays to less than 16 rings. One way to accomplish this is to generate a new data set using subset() to select RINGS < 16.  Use ylim = c(0, 1100) for VOLUME and ylim = c(0, 400) for WHOLE.  If you wish to reorder the displays for presentation purposes or use ggplot2 go ahead.
+
+```{r Part_5c, fig.height = 4}
+
+par(mfrow = c(2,2))
+infant_df <- mydata[mydata$SEX == "I" & mydata$RINGS < 16, ]
+
+adult_df <- mydata[mydata$SEX != "I" & mydata$RINGS < 16, ]
+
+boxplot(infant_df$VOLUME ~ infant_df$RINGS, ylim = c(0,1100), col= "blue", ylab = "Volume", xlab = "Rings", main = "Infant Volume | Rings")
+boxplot(adult_df$VOLUME ~ adult_df$RINGS, ylim = c(0,1100), col ="red", ylab = "Volume", xlab = "Rings", main = "Adult Volume | Rings")
+boxplot(infant_df$WHOLE ~ infant_df$RINGS, ylim = c(0,400), col= "blue", ylab = "Whole Weight", xlab = "Rings", main = "Infant Whole Weight | Rings")
+boxplot(adult_df$WHOLE ~ adult_df$RINGS, ylim = c(0,400), col ="red", ylab = "Whole Weight", xlab = "Rings", main = "Adult Whole Weight | Rings")
+
+
+```
+
+**Essay Question (2 points):  What do these displays suggest about abalone growth?  Also, compare the infant and adult displays.  What differences stand out?**
+
+***Answer: The adult population has more variation with longer interquartile ranges and the longer whiskers. Also as rings increase, volume and weight tend to increase as well until they plateau off around 11/12 rings.***
+
+-----
+
+***### Section 6: (11 points) Conclusions from the Exploratory Data Analysis (EDA).***
+
+
+**Conclusions**
+
+
+**Essay Question 1) (5 points)	Based solely on these data, what are plausible statistical reasons that explain the failure of the original study? Consider to what extent physical measurements may be used for age prediction.**
+
+***Answer: Firstly when we examined the outliers of each group, we did see some extreme outliers in the female and infant groups. Those would need to be addressed so that they don't skew the data set. This would allow us to garner a population that is normally distributed. Continuing with the infant group, there were some odd classifications in the age classes that did bucket some infants in the higher age classes. The sex class would need to be reevaluated so that the quality of the data can be as high as possible. Another aspect is that I have mentioned throughout this analysis of moments of correlation. We don't have definitive evidence that there are concrete relationships beyond correlation. They definitely could be present, but further analysis is needed if more advanced analytics is wanted. Finally, rings, volume, sex, and whole weight are good factors to consider what goes into age, but more data is needed or put in the right context to ensure that all factors are being considered in this process.***
+
+
+**Essay Question 2) (3 points) Do not refer to the abalone data or study.  If you were presented with an overall histogram and summary statistics from a sample of some population or phenomenon and no other information, what questions might you ask before accepting them as representative of the sampled population or phenomenon?**
+
+***Answer: What is the median? Are there outliers? Have other samples been taken? What is the distribution look like? What is the variance and standard deviation?***
+
+
+**Essay Question 3)  (3 points)	Do not refer to the abalone data or study.  What do you see as difficulties analyzing data derived from observational studies? Can causality be determined?  What might be learned from such studies?**
+
+***Answer: One thing that I see as quite difficult is understanding the environment. Normally there can be a laundry list of factors that impact the outcome and it can be extremely difficult to nearly impossible to account for all factors. Causality is fickle in that even in creating that laundry list, there could be factors that the analyst can't even think of that should be on that list. Causality can never be determined unless it is in a controlled setting where all variables can be determined. In those kind of studies, relationships can be determined and then can be applied to other contexts where it might be difficult to determine certain relationships.***
