@@ -908,8 +908,323 @@ print_Accuracy( "ALL CLASSIFICATION ACCURACY", ALL_CLM )
 ALL_AMT = [ TREE_AMT, RF_AMT, GB_AMT, REG_ALL_AMT, REG_TREE_AMT, REG_RF_AMT, REG_GB_AMT, REG_STEP_AMOUNT ]
 ALL_AMT = sorted( ALL_AMT, key = lambda x: x[1] )
 print_Accuracy( "ALL LOSS AMOUNT MODEL ACCURACY", ALL_AMT )
-# In[ ]:
 
+"""
+TENSORFLOW
+"""
 
+import tensorflow as tf
 
+    from sklearn.preprocessing import MinMaxScaler
+    theScaler = MinMaxScaler()
+    theScaler.fit( X_train )
 
+    def get_TF_ProbAccuracyScores( NAME, MODEL, X, Y ) :
+        probs = MODEL.predict( X )
+        pred_list = []
+        for p in probs :
+            pred_list.append( np.argmax( p ) )
+        pred = np.array( pred_list )
+        acc_score = metrics.accuracy_score(Y, pred)
+        p1 = probs[:,1]
+        fpr, tpr, threshold = metrics.roc_curve( Y, p1)
+        auc = metrics.auc(fpr,tpr)
+        return [NAME, acc_score, fpr, tpr, auc]
+
+    WHO = "Tensor_FLow"
+
+    U_train = theScaler.transform( X_train )
+    U_test = theScaler.transform( X_test )
+
+    U_train = pd.DataFrame( U_train )
+    U_test = pd.DataFrame( U_test )
+
+    U_train.columns = list( X_train.columns.values )
+    U_test.columns = list( X_train.columns.values )
+
+    U_train = U_train[ GB_flag ]
+    U_test = U_test[ GB_flag ]
+
+    F_theShapeSize = U_train.shape[1]
+    F_theActivation = tf.keras.activations.relu
+    F_theLossMetric = tf.keras.losses.SparseCategoricalCrossentropy()
+    F_theOptimizer = tf.keras.optimizers.Adam()
+    F_theEpochs = 100
+
+    F_theUnits = int( 2*F_theShapeSize / 3 )
+
+    F_LAYER_01 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation, input_dim=F_theShapeSize )
+    F_LAYER_OUTPUT = tf.keras.layers.Dense( units=2, activation=tf.keras.activations.softmax )
+
+    CLM = tf.keras.Sequential()
+    CLM.add( F_LAYER_01 )
+    CLM.add( F_LAYER_OUTPUT )
+    CLM.compile( loss=F_theLossMetric, optimizer=F_theOptimizer)
+    CLM.fit( U_train, Y_train[TARGET_F], epochs=F_theEpochs, verbose=False )
+
+    #One Layer
+
+    TRAIN_CLM = get_TF_ProbAccuracyScores( WHO + "_Train", CLM, U_train, Y_train[ TARGET_F ] )
+    TEST_CLM = get_TF_ProbAccuracyScores( WHO, CLM, U_test, Y_test[ TARGET_F ] )
+
+    print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+    print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+    F_theShapeSize = U_train.shape[1]
+    F_theActivation = tf.keras.activations.relu
+    F_theLossMetric = tf.keras.losses.SparseCategoricalCrossentropy()
+    F_theOptimizer = tf.keras.optimizers.Adam()
+    F_theEpochs = 100
+
+    F_theUnits = int( 2*F_theShapeSize / 3 )
+
+    F_LAYER_01 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation, input_dim=F_theShapeSize )
+    F_LAYER_02 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation )
+    F_LAYER_OUTPUT = tf.keras.layers.Dense( units=2, activation=tf.keras.activations.softmax )
+
+    CLM = tf.keras.Sequential()
+    CLM.add( F_LAYER_01 )
+    CLM.add( F_LAYER_02 )
+    CLM.add( F_LAYER_OUTPUT )
+    CLM.compile( loss=F_theLossMetric, optimizer=F_theOptimizer)
+    CLM.fit( U_train, Y_train[TARGET_F], epochs=F_theEpochs, verbose=False )
+
+    #Two Layers
+
+    TRAIN_CLM = get_TF_ProbAccuracyScores( WHO + "_Train", CLM, U_train, Y_train[ TARGET_F ] )
+    TEST_CLM = get_TF_ProbAccuracyScores( WHO, CLM, U_test, Y_test[ TARGET_F ] )
+
+    print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+    print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+    F_theShapeSize = U_train.shape[1]
+    F_theActivation = tf.keras.activations.relu
+    F_theLossMetric = tf.keras.losses.SparseCategoricalCrossentropy()
+    F_theOptimizer = tf.keras.optimizers.Adam()
+    F_theEpochs = 100
+
+    F_theUnits = int( 2*F_theShapeSize / 3 )
+
+    F_LAYER_01 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation, input_dim=F_theShapeSize )
+    F_LAYER_DROP = tf.keras.layers.Dropout( 0.2 )
+    F_LAYER_OUTPUT = tf.keras.layers.Dense( units=2, activation=tf.keras.activations.softmax )
+
+    CLM = tf.keras.Sequential()
+    CLM.add( F_LAYER_01 )
+    CLM.add( F_LAYER_DROP )
+    CLM.add( F_LAYER_OUTPUT )
+    CLM.compile( loss=F_theLossMetric, optimizer=F_theOptimizer)
+    CLM.fit( U_train, Y_train[TARGET_F], epochs=F_theEpochs, verbose=False )
+
+    #Drop Layer
+
+    TRAIN_CLM = get_TF_ProbAccuracyScores( WHO + "_Train", CLM, U_train, Y_train[ TARGET_F ] )
+    TEST_CLM = get_TF_ProbAccuracyScores( WHO, CLM, U_test, Y_test[ TARGET_F ] )
+
+    print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+    print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+    F_theShapeSize = U_train.shape[1]
+    F_theActivation = tf.keras.activations.softmax
+    F_theLossMetric = tf.keras.losses.SparseCategoricalCrossentropy()
+    F_theOptimizer = tf.keras.optimizers.Adam()
+    F_theEpochs = 100
+
+    F_theUnits = int( 2*F_theShapeSize / 3 )
+
+    F_LAYER_01 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation, input_dim=F_theShapeSize )
+    F_LAYER_OUTPUT = tf.keras.layers.Dense( units=2, activation=tf.keras.activations.softmax )
+
+    CLM = tf.keras.Sequential()
+    CLM.add( F_LAYER_01 )
+    CLM.add( F_LAYER_OUTPUT )
+    CLM.compile( loss=F_theLossMetric, optimizer=F_theOptimizer)
+    CLM.fit( U_train, Y_train[TARGET_F], epochs=F_theEpochs, verbose=False )
+
+    #SoftMax Activation Layer
+
+    TRAIN_CLM = get_TF_ProbAccuracyScores( WHO + "_Train", CLM, U_train, Y_train[ TARGET_F ] )
+    TEST_CLM = get_TF_ProbAccuracyScores( WHO, CLM, U_test, Y_test[ TARGET_F ] )
+
+    print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+    print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+    F_theShapeSize = U_train.shape[1]
+    F_theActivation = tf.keras.activations.softplus
+    F_theLossMetric = tf.keras.losses.SparseCategoricalCrossentropy()
+    F_theOptimizer = tf.keras.optimizers.Adam()
+    F_theEpochs = 100
+
+    F_theUnits = int( 2*F_theShapeSize / 3 )
+
+    F_LAYER_01 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation, input_dim=F_theShapeSize )
+    F_LAYER_OUTPUT = tf.keras.layers.Dense( units=2, activation=tf.keras.activations.softmax )
+
+    CLM = tf.keras.Sequential()
+    CLM.add( F_LAYER_01 )
+    CLM.add( F_LAYER_OUTPUT )
+    CLM.compile( loss=F_theLossMetric, optimizer=F_theOptimizer)
+    CLM.fit( U_train, Y_train[TARGET_F], epochs=F_theEpochs, verbose=False )
+
+    #SoftPlus Activation Layer
+
+    TRAIN_CLM = get_TF_ProbAccuracyScores( WHO + "_Train", CLM, U_train, Y_train[ TARGET_F ] )
+    TEST_CLM = get_TF_ProbAccuracyScores( WHO, CLM, U_test, Y_test[ TARGET_F ] )
+
+    print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+    print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+    #Predict the Damages
+
+    V_train = theScaler.transform( W_train )
+    V_test = theScaler.transform( W_test )
+
+    V_train = pd.DataFrame( V_train )
+    V_test = pd.DataFrame( V_test )
+
+    V_train.columns = list( W_train.columns.values )
+    V_test.columns = list( W_train.columns.values )
+
+    V_train = V_train[ GB_amt ]
+    V_test = V_test[ GB_amt ]
+
+    #One Layer
+
+    A_theShapeSize = V_train.shape[1]
+    A_theActivation = tf.keras.activations.relu
+    A_theLossMetric = tf.keras.losses.MeanSquaredError()
+    A_theOptimizer = tf.keras.optimizers.Adam()
+    A_theEpochs = 800
+
+    A_theUnits = int( 2*A_theShapeSize / 3)
+
+    A_LAYER_01 = tf.keras.layers.Dense( units=A_theUnits, activation=A_theActivation, input_dim=A_theShapeSize )
+    A_LAYER_OUTPUT = tf.keras.layers.Dense( units=1, activation=tf.keras.activations.linear )
+
+    AMT = tf.keras.Sequential()
+    AMT.add( A_LAYER_01 )
+    AMT.add( A_LAYER_OUTPUT )
+    AMT.compile( loss=A_theLossMetric, optimizer=A_theOptimizer)
+    AMT.fit( V_train, Z_train[TARGET_A], epochs=A_theEpochs, verbose=False )
+
+    TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, V_train[GB_amt], Z_train[TARGET_A] )
+    TEST_AMT = getAmtAccuracyScores( WHO, AMT, V_test[GB_amt], Z_test[TARGET_A] )
+    print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+    #Two Layers
+
+    A_theShapeSize = V_train.shape[1]
+    A_theActivation = tf.keras.activations.relu
+    A_theLossMetric = tf.keras.losses.MeanSquaredError()
+    A_theOptimizer = tf.keras.optimizers.Adam()
+    A_theEpochs = 800
+
+    A_theUnits = int( 2*A_theShapeSize / 3)
+
+    A_LAYER_01 = tf.keras.layers.Dense( units=A_theUnits, activation=A_theActivation, input_dim=A_theShapeSize )
+    F_LAYER_02 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation )
+    A_LAYER_OUTPUT = tf.keras.layers.Dense( units=1, activation=tf.keras.activations.linear )
+
+    AMT = tf.keras.Sequential()
+    AMT.add( A_LAYER_01 )
+    CLM.add( F_LAYER_02 )
+    AMT.add( A_LAYER_OUTPUT )
+    AMT.compile( loss=A_theLossMetric, optimizer=A_theOptimizer)
+    AMT.fit( V_train, Z_train[TARGET_A], epochs=A_theEpochs, verbose=False )
+
+    TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, V_train[GB_amt], Z_train[TARGET_A] )
+    TEST_AMT = getAmtAccuracyScores( WHO, AMT, V_test[GB_amt], Z_test[TARGET_A] )
+    print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+    #Drop Off Layer
+
+    A_theShapeSize = V_train.shape[1]
+    A_theActivation = tf.keras.activations.relu
+    A_theLossMetric = tf.keras.losses.MeanSquaredError()
+    A_theOptimizer = tf.keras.optimizers.Adam()
+    A_theEpochs = 800
+
+    A_theUnits = int( 2*A_theShapeSize / 3)
+
+    A_LAYER_01 = tf.keras.layers.Dense( units=A_theUnits, activation=A_theActivation, input_dim=A_theShapeSize )
+    F_LAYER_DROP = tf.keras.layers.Dropout( 0.2 )
+    F_LAYER_02 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation )
+    A_LAYER_OUTPUT = tf.keras.layers.Dense( units=1, activation=tf.keras.activations.linear )
+
+    AMT = tf.keras.Sequential()
+    AMT.add( A_LAYER_01 )
+    CLM.add( F_LAYER_DROP )
+    CLM.add( F_LAYER_02 )
+    AMT.add( A_LAYER_OUTPUT )
+    AMT.compile( loss=A_theLossMetric, optimizer=A_theOptimizer)
+    AMT.fit( V_train, Z_train[TARGET_A], epochs=A_theEpochs, verbose=False )
+
+    TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, V_train[GB_amt], Z_train[TARGET_A] )
+    TEST_AMT = getAmtAccuracyScores( WHO, AMT, V_test[GB_amt], Z_test[TARGET_A] )
+    print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+    #SoftMax Activation
+
+    A_theShapeSize = V_train.shape[1]
+    A_theActivation = tf.keras.activations.softmax
+    A_theLossMetric = tf.keras.losses.MeanSquaredError()
+    A_theOptimizer = tf.keras.optimizers.Adam()
+    A_theEpochs = 800
+
+    A_theUnits = int( 2*A_theShapeSize / 3)
+
+    A_LAYER_01 = tf.keras.layers.Dense( units=A_theUnits, activation=A_theActivation, input_dim=A_theShapeSize )
+    F_LAYER_02 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation )
+    A_LAYER_OUTPUT = tf.keras.layers.Dense( units=1, activation=tf.keras.activations.linear )
+
+    AMT = tf.keras.Sequential()
+    AMT.add( A_LAYER_01 )
+    CLM.add( F_LAYER_02 )
+    AMT.add( A_LAYER_OUTPUT )
+    AMT.compile( loss=A_theLossMetric, optimizer=A_theOptimizer)
+    AMT.fit( V_train, Z_train[TARGET_A], epochs=A_theEpochs, verbose=False )
+
+    TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, V_train[GB_amt], Z_train[TARGET_A] )
+    TEST_AMT = getAmtAccuracyScores( WHO, AMT, V_test[GB_amt], Z_test[TARGET_A] )
+    print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+    #SoftPlus Activation
+
+    A_theShapeSize = V_train.shape[1]
+    A_theActivation = tf.keras.activations.softplus
+    A_theLossMetric = tf.keras.losses.MeanSquaredError()
+    A_theOptimizer = tf.keras.optimizers.Adam()
+    A_theEpochs = 800
+
+    A_theUnits = int( 2*A_theShapeSize / 3)
+
+    A_LAYER_01 = tf.keras.layers.Dense( units=A_theUnits, activation=A_theActivation, input_dim=A_theShapeSize )
+    F_LAYER_02 = tf.keras.layers.Dense( units=F_theUnits, activation=F_theActivation )
+    A_LAYER_OUTPUT = tf.keras.layers.Dense( units=1, activation=tf.keras.activations.linear )
+
+    AMT = tf.keras.Sequential()
+    AMT.add( A_LAYER_01 )
+    CLM.add( F_LAYER_02 )
+    AMT.add( A_LAYER_OUTPUT )
+    AMT.compile( loss=A_theLossMetric, optimizer=A_theOptimizer)
+    AMT.fit( V_train, Z_train[TARGET_A], epochs=A_theEpochs, verbose=False )
+
+    TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, V_train[GB_amt], Z_train[TARGET_A] )
+    TEST_AMT = getAmtAccuracyScores( WHO, AMT, V_test[GB_amt], Z_test[TARGET_A] )
+    print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+    TF_CLM = TEST_CLM.copy()
+    TF_AMT = TEST_AMT.copy()
+
+    ALL_CLM = [ TREE_CLM, RF_CLM, GB_CLM, REG_ALL_CLM, REG_TREE_CLM, REG_RF_CLM, REG_GB_CLM, TF_CLM ]
+
+    ALL_CLM = sorted( ALL_CLM, key = lambda x: x[4], reverse=True )
+    print_ROC_Curve( WHO, ALL_CLM ) 
+
+    ALL_CLM = sorted( ALL_CLM, key = lambda x: x[1], reverse=True )
+    print_Accuracy( "ALL CLASSIFICATION ACCURACY", ALL_CLM )
+    
+
+    ALL_AMT = [ TREE_AMT, RF_AMT, GB_AMT, REG_ALL_AMT, REG_TREE_AMT, REG_RF_AMT, REG_GB_AMT, TF_AMT ]
+    ALL_AMT = sorted( ALL_AMT, key = lambda x: x[1] )
+    print_Accuracy( "ALL LOSS MODEL ACCURACY", ALL_AMT )
