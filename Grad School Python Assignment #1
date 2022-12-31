@@ -1,0 +1,206 @@
+#Goal: Read in the data file and perform an exploratory analysis while filling in missing values
+#Language: Python
+
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set()
+
+
+
+df = pd.read_csv('HMEQ_Loss.csv')
+
+
+
+pd.set_option('display.max_columns', None)
+
+
+
+df.head()
+
+
+#Identify data types
+df.dtypes
+
+
+df.describe().T
+
+
+#Create target columns and organize columns by data type
+dt = df.dtypes
+print( dt )
+
+TARGET_F = "TARGET_BAD_FLAG"
+TARGET_A = "TARGET_LOSS_AMT"
+
+
+objList = []
+numList = []
+for i in dt.index :
+    #print(" here is i .....", i , " ..... and here is the type", dt[i] )
+    if i in ( [ TARGET_F, TARGET_A ] ) : continue
+    if dt[i] in (["object"]) : objList.append( i )
+    if dt[i] in (["float64","int64"]) : numList.append( i )
+
+
+objList
+
+
+#Find target means by class and job
+for i in objList :
+    print(" Class = ", i )
+    g = df.groupby( i )
+    print( g[i].count() )
+    x = g[ TARGET_F ].mean()
+    print( "Default Probability", x )
+    print( " ................. ")
+    x = g[ TARGET_A ].mean()
+    print( "Loss Amount", x )
+    print(" ===============\n\n\n ")
+
+
+#Find the distribution of jobs and the reason
+for i in objList :
+    x = df[ i ].value_counts(dropna=False)
+    print( x )
+    theLabels = x.axes[0].tolist()
+    print( theLabels )
+    theSlices = list(x)
+    print( theSlices ) 
+    plt.pie( theSlices,
+            labels=theLabels,
+            startangle = 90,
+            shadow=True,
+            autopct="%1.1f%%")
+    plt.title("Pie Chart: " + i)
+    plt.show()
+
+
+for i in intList :
+    plt.hist( df[ i ] )
+    plt.xlabel( i )
+    plt.show()
+
+
+for i in floatList :
+    plt.hist( df[ i ] )
+    plt.xlabel( i )
+    plt.show()
+
+
+#Look at distribution of loss amounts
+plt.hist( df[ TARGET_A ] )
+plt.xlabel( "Loss Amount" )
+plt.show()
+
+
+#Find most common reason and job
+for i in objList :
+    print( i )
+    print( df[i].unique() )
+    g = df.groupby( i )
+    print( g[i].count() )
+    print( "MOST COMMON = ", df[i].mode()[0] )   
+    print( "MISSING = ", df[i].isna().sum() )
+    print( "\n\n")
+
+
+#If object columns have missing data, input "missing" for na values
+for i in objList :
+    if df[i].isna().sum() == 0 : continue
+    print( i ) 
+    print("HAS MISSING")
+    NAME = "IMP_"+i
+    print( NAME ) 
+    df[NAME] = df[i]
+    df[NAME] = df[NAME].fillna("MISSING")
+    print( "variable",i," has this many missing", df[i].isna().sum() )
+    print( "variable",NAME," has this many missing", df[NAME].isna().sum() )
+    g = df.groupby( NAME )
+    print( g[NAME].count() )
+    print( "\n\n")
+
+
+#Find probability of default reason/job and the loss amount
+for i in objList :
+    print(" Class = ", i )
+    #print( df[i].unique() )
+    g = df.groupby( i )
+    x = g[ TARGET_F ].mean()
+    print( "Default Probability", x )
+    print( " ................. ")
+    x = g[ TARGET_A ].mean()
+    x = g[ TARGET_A ].median()
+    print( "Loss Amount", x )
+    print(" ===============\n\n\n ")
+
+
+dt = df.dtypes
+objList = []
+for i in dt.index :
+    if i in ( [ TARGET_F, TARGET_A ] ) : continue
+    if dt[i] in (["object"]) : objList.append( i )
+
+print(" OBJECTS ")
+print(" ------- ")
+for i in objList :
+    print( i )
+print(" ------- ")
+
+
+#Get dummy variables for object variables
+for i in objList :
+    thePrefix = "z_" + i
+    y = pd.get_dummies( df[i], prefix=thePrefix, drop_first=True )  
+    df = pd.concat( [df, y], axis=1 )
+
+
+#For number variables, input median in for na's
+for i in numList :
+    if df[i].isna().sum() == 0 : continue
+    FLAG = "M_" + i
+    IMP = "IMP_" + i
+    print(i)
+    print( df[i].isna().sum() )
+    print( FLAG )
+    print( IMP )
+    print(" ------- ")
+    df[ FLAG ] = df[i].isna() + 0
+    df[ IMP ] = df[ i ]
+    df.loc[ df[IMP].isna(), IMP ] = df[i].median()
+
+
+#Null check
+df.isna().sum()
+
+
+df.head().T
+
+#Find correlation with Target Flag
+df_num = df.select_dtypes(include=["float64","int64"])
+df_num.head()
+
+
+df_corr = df_num.corr()['TARGET_BAD_FLAG'][:-1]
+
+
+df_corr
+
+
+for i in range(0,len(df_num.columns),3):
+    sns.pairplot(df_num,y_vars=['TARGET_LOSS_AMT'], x_vars=df_num.columns[i:i+3])
+
+
+sns.heatmap(df_num.corr())
+
+
+objList
+
+
+sns.boxplot(x = 'REASON', y = 'TARGET_LOSS_AMT', data = df)
+
+
+sns.boxplot(x = 'JOB', y = 'TARGET_LOSS_AMT', data = df)
+
