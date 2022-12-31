@@ -1,0 +1,915 @@
+#Goal: read, clean and prepare data. Then run different models and their regression versions to see which model most accurately predicts the target variables. 
+#Language: Python
+
+
+import math
+import pandas as pd
+import numpy as np
+from operator import itemgetter
+
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+from sklearn.model_selection import train_test_split
+import sklearn.metrics as metrics
+
+
+from sklearn import tree
+from sklearn.tree import _tree
+
+from sklearn.ensemble import RandomForestRegressor 
+from sklearn.ensemble import RandomForestClassifier 
+
+from sklearn.ensemble import GradientBoostingRegressor 
+from sklearn.ensemble import GradientBoostingClassifier 
+
+
+
+sns.set()
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', None)
+pd.set_option('display.max_colwidth', None)
+
+
+#Define Target variables
+
+TARGET_F = "TARGET_BAD_FLAG"
+TARGET_A = "TARGET_LOSS_AMT"
+
+df = pd.read_csv("HMEQ_Loss (2).csv")
+
+
+df.head()
+
+
+df.describe()
+
+
+#Identify data types, categorize them, and fill in missing values as well as add dummy and idenfifier columns
+
+dt = df.dtypes
+
+objList = []
+numList = []
+for i in dt.index :
+    if i in ( [ TARGET_F, TARGET_A ] ) : continue
+    if dt[i] in (["object"]) : objList.append( i )
+    if dt[i] in (["float64","int64"]) : numList.append( i )
+
+
+for i in numList :
+    #print(" ------- ")
+    #print(i)
+    theMean = df[i].mean()
+    theSD = df[i].std()
+    theMax = df[i].max()
+    theCutoff = round( theMean + 3*theSD )
+    if theMax < theCutoff : continue
+    FLAG = "O_" + i
+    TRUNC = "TRUNC_" + i
+    df[ FLAG ] = ( df[i] > theCutoff )+ 0
+    df[ TRUNC ] = df[ i ]
+    df.loc[ df[TRUNC] > theCutoff, TRUNC ] = theCutoff
+
+
+dt = df.dtypes
+numList = []
+for i in dt.index :
+    #print(i, dt[i])
+    if i in ( [ TARGET_F, TARGET_A ] ) : continue
+    if dt[i] in (["float64","int64"]) : numList.append( i )
+
+
+dt = df.dtypes
+objList = []
+for i in dt.index :
+    if i in ( [ TARGET_F, TARGET_A ] ) : continue
+    if dt[i] in (["object"]) : objList.append( i )
+
+
+for i in objList :
+    thePrefix = "z_" + i
+    y = pd.get_dummies( df[i], prefix=thePrefix, drop_first=True )   
+    df = pd.concat( [df, y], axis=1 )
+
+
+for i in numList :
+    if df[i].isna().sum() == 0 : continue
+    FLAG = "M_" + i
+    IMP = "IMP_" + i
+    df[ FLAG ] = df[i].isna() + 0
+    df[ IMP ] = df[ i ]
+    df.loc[ df[IMP].isna(), IMP ] = df[i].median()
+    df = df.drop( i, axis=1 )
+
+
+for i in objList:
+    df = df.drop( i, axis=1 )
+
+
+df.isna().sum()
+
+
+X = df.copy()
+X.head().T
+
+
+#Best Practices
+
+import math
+import pandas as pd
+import numpy as np
+from operator import itemgetter
+
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+from sklearn.model_selection import train_test_split
+import sklearn.metrics as metrics
+
+
+from sklearn import tree
+from sklearn.tree import _tree
+
+from sklearn.ensemble import RandomForestRegressor 
+from sklearn.ensemble import RandomForestClassifier 
+
+from sklearn.ensemble import GradientBoostingRegressor 
+from sklearn.ensemble import GradientBoostingClassifier
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix
+
+from mlxtend.feature_selection import SequentialFeatureSelector as SFS
+from mlxtend.plotting import plot_sequential_feature_selection as plot_sfs
+
+import warnings
+warnings.filterwarnings("ignore")
+
+
+"""
+MODEL ACCURACY METRICS
+"""
+
+def getProbAccuracyScores( NAME, MODEL, X, Y ) :
+    pred = MODEL.predict( X )
+    probs = MODEL.predict_proba( X )
+    acc_score = metrics.accuracy_score(Y, pred)
+    p1 = probs[:,1]
+    fpr, tpr, threshold = metrics.roc_curve( Y, p1)
+    auc = metrics.auc(fpr,tpr)
+    return [NAME, acc_score, fpr, tpr, auc]
+
+def print_ROC_Curve( TITLE, LIST ) :
+    fig = plt.figure(figsize=(6,4))
+    plt.title( TITLE )
+    for theResults in LIST :
+        NAME = theResults[0]
+        fpr = theResults[2]
+        tpr = theResults[3]
+        auc = theResults[4]
+        theLabel = "AUC " + NAME + ' %0.2f' % auc
+        plt.plot(fpr, tpr, label = theLabel )
+    plt.legend(loc = 'lower right')
+    plt.plot([0, 1], [0, 1],'r--')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.show()
+
+def print_Accuracy( TITLE, LIST ) :
+    print( TITLE )
+    print( "======" )
+    for theResults in LIST :
+        NAME = theResults[0]
+        ACC = theResults[1]
+        print( NAME, " = ", ACC )
+    print( "------\n\n" )
+
+def getAmtAccuracyScores( NAME, MODEL, X, Y ) :
+    pred = MODEL.predict( X )
+    MEAN = Y.mean()
+    RMSE = math.sqrt( metrics.mean_squared_error( Y, pred))
+    return [NAME, RMSE, MEAN]
+
+
+
+"""
+SPLIT DATA
+"""
+
+X = df.copy()
+X = X.drop( TARGET_F, axis=1 )
+X = X.drop( TARGET_A, axis=1 )
+
+Y = df[ [TARGET_F, TARGET_A] ]
+
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, train_size=0.8, test_size=0.2, random_state=2)
+
+
+F = ~ Y_train[ TARGET_A ].isna()
+W_train = X_train[F].copy()
+Z_train = Y_train[F].copy()
+
+F = ~ Y_test[ TARGET_A ].isna()
+W_test = X_test[F].copy()
+Z_test = Y_test[F].copy()
+
+F = Z_train[ TARGET_A ] > 25000
+Z_train.loc[ F, TARGET_A ] = 25000
+
+F = Z_test[ TARGET_A ] > 25000
+Z_test.loc[ F, [TARGET_A] ] = 25000
+
+
+# DEFAULT PROBABILITY
+
+WHO = "TREE"
+
+CLM = tree.DecisionTreeClassifier( max_depth=3 )
+CLM = CLM.fit( X_train, Y_train[ TARGET_F ] )
+
+TRAIN_CLM = getProbAccuracyScores( WHO + "_Train", CLM, X_train, Y_train[ TARGET_F ] )
+TEST_CLM = getProbAccuracyScores( WHO, CLM, X_test, Y_test[ TARGET_F ] )
+
+print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+feature_cols = list( X.columns.values )
+tree.export_graphviz(CLM,out_file='tree_f.txt',filled=True, rounded=True, feature_names = feature_cols, impurity=False, class_names=["Good","Bad"]  )
+vars_tree_flag = getTreeVars( CLM, feature_cols )
+
+
+vars_tree_flag
+
+
+# LOSS AMOUNT
+
+AMT = tree.DecisionTreeRegressor( max_depth= 4 )
+AMT = AMT.fit( W_train, Z_train[TARGET_A] )
+
+TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, W_train, Z_train[TARGET_A] )
+TEST_AMT = getAmtAccuracyScores( WHO, AMT, W_test, Z_test[TARGET_A] )
+
+print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+feature_cols = list( X.columns.values )
+vars_tree_amt = getTreeVars( AMT, feature_cols ) 
+tree.export_graphviz(AMT,out_file='tree_a.txt',filled=True, rounded=True, feature_names = feature_cols, impurity=False, precision=0  )
+
+
+TREE_CLM = TEST_CLM.copy()
+TREE_AMT = TEST_AMT.copy()
+
+
+vars_tree_amt
+
+
+"""
+RANDOM FOREST
+"""
+
+
+def getEnsembleTreeVars( ENSTREE, varNames ) :
+    importance = ENSTREE.feature_importances_
+    index = np.argsort(importance)
+    theList = []
+    for i in index :
+        imp_val = importance[i]
+        if imp_val > np.average( ENSTREE.feature_importances_ ) :
+            v = int( imp_val / np.max( ENSTREE.feature_importances_ ) * 100 )
+            theList.append( ( varNames[i], v ) )
+    theList = sorted(theList,key=itemgetter(1),reverse=True)
+    return theList
+
+WHO = "RF"
+
+CLM = RandomForestClassifier( n_estimators = 25, random_state=1 )
+CLM = CLM.fit( X_train, Y_train[ TARGET_F ] )
+
+TRAIN_CLM = getProbAccuracyScores( WHO + "_Train", CLM, X_train, Y_train[ TARGET_F ] )
+TEST_CLM = getProbAccuracyScores( WHO, CLM, X_test, Y_test[ TARGET_F ] )
+
+print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+
+feature_cols = list( X.columns.values )
+vars_RF_flag = getEnsembleTreeVars( CLM, feature_cols )
+
+
+# LOSS AMOUNT
+
+AMT = RandomForestRegressor(n_estimators = 100, random_state=1)
+AMT = AMT.fit( W_train, Z_train[TARGET_A] )
+
+TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, W_train, Z_train[TARGET_A] )
+TEST_AMT = getAmtAccuracyScores( WHO, AMT, W_test, Z_test[TARGET_A] )
+print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+feature_cols = list( X.columns.values )
+vars_RF_amt = getEnsembleTreeVars( AMT, feature_cols )
+
+for i in vars_RF_amt :
+    print( i )
+
+RF_CLM = TEST_CLM.copy()
+RF_AMT = TEST_AMT.copy()
+
+
+"""
+GRADIENT BOOSTING
+"""
+
+WHO = "GB"
+
+CLM = GradientBoostingClassifier( random_state=1 )
+CLM = CLM.fit( X_train, Y_train[ TARGET_F ] )
+
+TRAIN_CLM = getProbAccuracyScores( WHO + "_Train", CLM, X_train, Y_train[ TARGET_F ] )
+TEST_CLM = getProbAccuracyScores( WHO, CLM, X_test, Y_test[ TARGET_F ] )
+
+print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+
+feature_cols = list( X.columns.values )
+vars_GB_flag = getEnsembleTreeVars( CLM, feature_cols )
+
+
+# LOSS AMOUNT
+
+AMT = GradientBoostingRegressor(random_state=1)
+AMT = AMT.fit( W_train, Z_train[TARGET_A] )
+
+TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, W_train, Z_train[TARGET_A] )
+TEST_AMT = getAmtAccuracyScores( WHO, AMT, W_test, Z_test[TARGET_A] )
+print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+feature_cols = list( X.columns.values )
+vars_GB_amt = getEnsembleTreeVars( AMT, feature_cols )
+
+for i in vars_GB_amt :
+    print( i )
+
+GB_CLM = TEST_CLM.copy()
+GB_AMT = TEST_AMT.copy()
+
+
+#Regressions
+
+import math
+import pandas as pd
+import numpy as np
+from operator import itemgetter
+
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+from sklearn.model_selection import train_test_split
+import sklearn.metrics as metrics
+
+
+from sklearn import tree
+from sklearn.tree import _tree
+
+from sklearn.ensemble import RandomForestRegressor 
+from sklearn.ensemble import RandomForestClassifier 
+
+from sklearn.ensemble import GradientBoostingRegressor 
+from sklearn.ensemble import GradientBoostingClassifier
+
+from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix
+
+from mlxtend.feature_selection import SequentialFeatureSelector as SFS
+from mlxtend.plotting import plot_sequential_feature_selection as plot_sfs
+
+
+def getCoefLogit( MODEL, TRAIN_DATA ) :
+    varNames = list( TRAIN_DATA.columns.values )
+    coef_dict = {}
+    coef_dict["INTERCEPT"] = MODEL.intercept_[0]
+    for coef, feat in zip(MODEL.coef_[0],varNames):
+        coef_dict[feat] = coef
+    print("\nDEFAULT")
+    print("---------")
+    print("Total Variables: ", len( coef_dict ) )
+    for i in coef_dict :
+        print( i, " = ", coef_dict[i]  )
+
+
+
+def getCoefLinear( MODEL, TRAIN_DATA ) :
+    varNames = list( TRAIN_DATA.columns.values )
+    coef_dict = {}
+    coef_dict["INTERCEPT"] = MODEL.intercept_
+    for coef, feat in zip(MODEL.coef_,varNames):
+        coef_dict[feat] = coef
+    print("\nLOSS AMOUNT")
+    print("---------")
+    print("Total Variables: ", len( coef_dict ) )
+    for i in coef_dict :
+        print( i, " = ", coef_dict[i]  )
+
+
+"""
+REGRESSION ALL VARIABLES
+"""
+
+WHO = "REG_ALL"
+
+CLM = LogisticRegression( solver='newton-cg', max_iter=1000 )
+CLM = CLM.fit( X_train, Y_train[ TARGET_F ] )
+
+TRAIN_CLM = getProbAccuracyScores( WHO + "_Train", CLM, X_train, Y_train[ TARGET_F ] )
+TEST_CLM = getProbAccuracyScores( WHO, CLM, X_test, Y_test[ TARGET_F ] )
+
+print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+
+# LOSS AMOUNT
+
+AMT = LinearRegression()
+AMT = AMT.fit( W_train, Z_train[TARGET_A] )
+
+TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, W_train, Z_train[TARGET_A] )
+TEST_AMT = getAmtAccuracyScores( WHO, AMT, W_test, Z_test[TARGET_A] )
+print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+
+varNames = list( X_train.columns.values )
+
+#REG_ALL_CLM_COEF = getCoefLogit( CLM, X_train )
+#REG_ALL_AMT_COEF = getCoefLinear( AMT, X_train )
+
+REG_ALL_CLM = TEST_CLM.copy()
+REG_ALL_AMT = TEST_AMT.copy()
+
+
+"""
+REGRESSION DECISION TREE
+"""
+
+WHO = "REG_TREE"
+
+CLM = LogisticRegression( solver='newton-cg', max_iter=1000 )
+CLM = CLM.fit( X_train[vars_tree_flag], Y_train[ TARGET_F ] )
+
+TRAIN_CLM = getProbAccuracyScores( WHO + "_Train", CLM, X_train[vars_tree_flag], Y_train[ TARGET_F ] )
+TEST_CLM = getProbAccuracyScores( WHO, CLM, X_test[vars_tree_flag], Y_test[ TARGET_F ] )
+
+print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+
+# LOSS AMOUNT
+
+AMT = LinearRegression()
+AMT = AMT.fit( W_train[vars_tree_amt], Z_train[TARGET_A] )
+
+TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, W_train[vars_tree_amt], Z_train[TARGET_A] )
+TEST_AMT = getAmtAccuracyScores( WHO, AMT, W_test[vars_tree_amt], Z_test[TARGET_A] )
+print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+
+varNames = list( X_train.columns.values )
+
+#REG_TREE_CLM_COEF = getCoefLogit( CLM, X_train[vars_tree_flag] )
+#REG_TREE_AMT_COEF = getCoefLinear( AMT, X_train[vars_tree_amt] )
+
+REG_TREE_CLM = TEST_CLM.copy()
+REG_TREE_AMT = TEST_AMT.copy()
+
+
+"""
+REGRESSION RANDOM FOREST
+"""
+
+WHO = "REG_RF"
+
+
+print("\n\n")
+RF_flag = []
+for i in vars_RF_flag :
+    print(i)
+    theVar = i[0]
+    RF_flag.append( theVar )
+
+print("\n\n")
+RF_amt = []
+for i in vars_RF_amt :
+    print(i)
+    theVar = i[0]
+    RF_amt.append( theVar )
+
+
+CLM = LogisticRegression( solver='newton-cg', max_iter=1000 )
+CLM = CLM.fit( X_train[RF_flag], Y_train[ TARGET_F ] )
+
+TRAIN_CLM = getProbAccuracyScores( WHO + "_Train", CLM, X_train[RF_flag], Y_train[ TARGET_F ] )
+TEST_CLM = getProbAccuracyScores( WHO, CLM, X_test[RF_flag], Y_test[ TARGET_F ] )
+
+print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+
+# LOSS AMOUNT
+
+AMT = LinearRegression()
+AMT = AMT.fit( W_train[RF_amt], Z_train[TARGET_A] )
+
+TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, W_train[RF_amt], Z_train[TARGET_A] )
+TEST_AMT = getAmtAccuracyScores( WHO, AMT, W_test[RF_amt], Z_test[TARGET_A] )
+print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+
+REG_RF_CLM_COEF = getCoefLogit( CLM, X_train[RF_flag] )
+REG_RF_AMT_COEF = getCoefLinear( AMT, X_train[RF_amt] )
+
+REG_RF_CLM = TEST_CLM.copy()
+REG_RF_AMT = TEST_AMT.copy()
+
+
+"""
+REGRESSION GRADIENT BOOSTING
+"""
+
+WHO = "REG_GB"
+
+
+print("\n\n")
+GB_flag = []
+for i in vars_GB_flag :
+    print(i)
+    theVar = i[0]
+    GB_flag.append( theVar )
+
+print("\n\n")
+GB_amt = []
+for i in vars_GB_amt :
+    print(i)
+    theVar = i[0]
+    GB_amt.append( theVar )
+
+
+CLM = LogisticRegression( solver='newton-cg', max_iter=1000 )
+CLM = CLM.fit( X_train[GB_flag], Y_train[ TARGET_F ] )
+
+TRAIN_CLM = getProbAccuracyScores( WHO + "_Train", CLM, X_train[GB_flag], Y_train[ TARGET_F ] )
+TEST_CLM = getProbAccuracyScores( WHO, CLM, X_test[GB_flag], Y_test[ TARGET_F ] )
+
+print_ROC_Curve( WHO, [ TRAIN_CLM, TEST_CLM ] ) 
+print_Accuracy( WHO + " CLASSIFICATION ACCURACY", [ TRAIN_CLM, TEST_CLM ] )
+
+
+# LOSS AMOUNT
+
+AMT = LinearRegression()
+AMT = AMT.fit( W_train[GB_amt], Z_train[TARGET_A] )
+
+TRAIN_AMT = getAmtAccuracyScores( WHO + "_Train", AMT, W_train[GB_amt], Z_train[TARGET_A] )
+TEST_AMT = getAmtAccuracyScores( WHO, AMT, W_test[GB_amt], Z_test[TARGET_A] )
+print_Accuracy( WHO + " RMSE ACCURACY", [ TRAIN_AMT, TEST_AMT ] )
+
+REG_GB_CLM_COEF = getCoefLogit( CLM, X_train[GB_flag] )
+REG_GB_AMT_COEF = getCoefLinear( AMT, X_train[GB_amt] )
+
+REG_GB_CLM = TEST_CLM.copy()
+REG_GB_AMT = TEST_AMT.copy()
+
+
+
+"""
+LOGISTIC REGRESSION STEPWISE (repeated until every P value was below 0.05)
+"""
+X_step = df.copy()
+X_step = X_step.drop( TARGET_F, axis=1 )
+X_step = X_step.drop( TARGET_A, axis=1 )
+
+Y_F = df[ [TARGET_F] ]
+Y_A = df[ [TARGET_A] ]
+
+import numpy as np
+import statsmodels.api as sm
+def get_stats():
+    results = sm.OLS(Y_F, X_step).fit()
+    print(results.summary())
+get_stats()
+
+
+X_step = X_step.drop('O_LOAN', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('LOAN', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('TRUNC_LOAN', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('O_MORTDUE', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('O_YOJ', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('M_DELINQ', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('M_NINQ', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('IMP_DEBTINC', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('M_TRUNC_DELINQ', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('M_TRUNC_NINQ', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('IMP_TRUNC_NINQ', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('O_VALUE', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('O_DEROG', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('O_CLAGE', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('O_NINQ', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('O_CLNO', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('z_JOB_Office', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('M_MORTDUE', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('IMP_MORTDUE', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('z_JOB_ProfExe', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('IMP_DEROG', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('IMP_DELINQ', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('M_TRUNC_MORTDUE', axis=1)
+get_stats()
+
+
+X_step = X_step.drop('IMP_TRUNC_MORTDUE', axis=1)
+get_stats()
+
+
+X_train,X_test,Y_train,Y_test=train_test_split(X_step,Y_F,test_size=0.25,random_state=0)
+
+
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
+
+WHO = "REG_STEPWISE"
+
+logreg = LogisticRegression()
+
+CLM = logreg.fit(X_train,Y_train)
+
+TEST_CLM = getProbAccuracyScores( WHO, CLM, X_test, Y_test)
+
+Y_pred=logreg.predict(X_test)
+
+cnf_matrix = metrics.confusion_matrix(Y_test, Y_pred)
+cnf_matrix
+
+
+print("Accuracy:",metrics.accuracy_score(Y_test, Y_pred))
+print("Precision:",metrics.precision_score(Y_test, Y_pred))
+print("Recall:",metrics.recall_score(Y_test, Y_pred))
+
+
+Y_pred_proba = logreg.predict_proba(X_test)[::,1]
+fpr, tpr, _ = metrics.roc_curve(Y_test,  Y_pred_proba)
+auc = metrics.roc_auc_score(Y_test, Y_pred_proba)
+plt.plot(fpr,tpr,label=", auc="+str(auc))
+plt.legend(loc=4)
+plt.show()
+
+
+REG_STEP_CLM = TEST_CLM.copy()
+
+
+
+"""
+LINEAR REGRESSION STEPWISE (repeated until every P value is below 0.05)
+"""
+X_step_2 = df.copy()
+X_step_2 = X_step_2.drop( TARGET_F, axis=1 )
+X_step_2 = X_step_2.drop( TARGET_A, axis=1 )
+
+Y_Flag = df[ [TARGET_F] ]
+Y_Amt = df[ [TARGET_A] ]
+
+import numpy as np
+import statsmodels.api as sm
+def get_stats():
+    results = sm.OLS(Y_Flag, X_step_2).fit()
+    print(results.summary())
+get_stats()
+
+
+X_step_2 = X_step_2.drop('LOAN', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('O_LOAN', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('TRUNC_LOAN', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('O_MORTDUE', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('O_VALUE', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('O_YOJ', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('O_DEROG', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('O_CLAGE', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('O_NINQ', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('O_CLNO', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('z_JOB_Office', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('z_JOB_ProfExe', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('M_MORTDUE', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('IMP_MORTDUE', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('IMP_DEROG', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('M_DELINQ', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('IMP_DELINQ', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('M_NINQ', axis=1)
+X_step_2 = X_step_2.drop('IMP_NINQ', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('IMP_DEBTINC', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('M_TRUNC_MORTDUE', axis=1)
+X_step_2 = X_step_2.drop('IMP_TRUNC_MORTDUE', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('M_TRUNC_DELINQ', axis=1)
+get_stats()
+
+
+X_step_2 = X_step_2.drop('M_TRUNC_NINQ', axis=1)
+get_stats()
+
+
+#Fill in missing target variables with median
+Y_Amt.isnull().sum()
+
+
+Y_Amt=Y_Amt.fillna(Y_Amt.median())
+
+
+Y_Amt.isnull().sum()
+
+
+#Split into train and test groups
+x_train, x_test, y_train, y_test = train_test_split(X_step_2, Y_Amt, train_size=0.8, test_size=0.2, random_state=2)
+
+H = ~ y_train[ TARGET_A ].isna()
+Q_train = x_train[H].copy()
+T_train = y_train[H].copy()
+
+H = ~ y_test[ TARGET_A ].isna()
+Q_test = x_test[H].copy()
+T_test = y_test[H].copy()
+
+
+#Run regression model
+linear_model = LinearRegression()
+linear_model.fit(x_train, y_train)
+
+
+#Predict based on test values
+y_pred = linear_model.predict(x_test)
+
+
+print(y_pred)
+
+
+REG_STEP_AMT = math.sqrt( metrics.mean_squared_error(y_test, y_pred))
+
+
+print("RMSE Test:", REG_STEP_AMT )
+
+
+REG_STEP_AMOUNT = ['REG_STEPWISE', REG_STEP_AMT]
+
+
+REG_STEP_AMOUNT
+
+
+#Compare all tests' AUCs against each other
+ALL_CLM = [ TREE_CLM, RF_CLM, GB_CLM, REG_ALL_CLM, REG_TREE_CLM, REG_RF_CLM, REG_GB_CLM, REG_STEP_CLM]
+
+ALL_CLM = sorted( ALL_CLM, key = lambda x: x[4], reverse=True )
+print_ROC_Curve( WHO, ALL_CLM ) 
+
+ALL_CLM = sorted( ALL_CLM, key = lambda x: x[1], reverse=True )
+print_Accuracy( "ALL CLASSIFICATION ACCURACY", ALL_CLM )
+
+
+ALL_AMT = [ TREE_AMT, RF_AMT, GB_AMT, REG_ALL_AMT, REG_TREE_AMT, REG_RF_AMT, REG_GB_AMT, REG_STEP_AMOUNT ]
+ALL_AMT = sorted( ALL_AMT, key = lambda x: x[1] )
+print_Accuracy( "ALL LOSS AMOUNT MODEL ACCURACY", ALL_AMT )
+# In[ ]:
+
+
+
+
