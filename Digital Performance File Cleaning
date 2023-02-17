@@ -1,0 +1,238 @@
+Goal: Clean Looker files to be format ready for channel teams to query.
+Language: Python
+#Note: this document must be in the same folder as the digital performance files
+
+ 
+
+import pandas as pd
+
+from datetime import datetime, timedelta
+
+pd.set_option('display.max_colwidth', None)
+
+   
+
+#Get report date range
+
+d1 = datetime.today() - timedelta(days=1)
+
+d1_month = f"{d1:%m}"
+
+d1_day = f"{d1:%d}"
+
+d2 = datetime.today() - timedelta(days=2)
+
+d2_month = f"{d2:%m}"
+
+d2_day = f"{d2:%d}"
+
+d3 = datetime.today() - timedelta(days=3)
+
+d3_month = f"{d3:%m}"
+
+d3_day = f"{d3:%d}"
+
+d4 = datetime.today() - timedelta(days=4)
+
+d4_month = f"{d4:%m}"
+
+d4_day = f"{d4:%d}"
+
+d5 = datetime.today() - timedelta(days=5)
+
+d5_month = f"{d5:%m}"
+
+d5_day = f"{d5:%d}"
+
+d6 = datetime.today() - timedelta(days=6)
+
+d6_month = f"{d6:%m}"
+
+d6_day = f"{d6:%d}"
+
+d7 = datetime.today() - timedelta(days=7)
+
+d7_month = f"{d7:%m}"
+
+d7_day = f"{d7:%d}"
+
+ 
+
+#Read each file into separate df's
+
+day_01 = pd.read_csv('digital_performance_platform_{year}{month}{day}.csv'.format(year=d1.year, month=d1_month, day=d1_day),
+
+                     names=['a', 'b', 'c', 'd', 'e', 'f'])
+
+day_02 = pd.read_csv('digital_performance_platform_{year}{month}{day}.csv'.format(year=d2.year, month=d2_month, day=d2_day),
+
+                     names=['a', 'b', 'c', 'd', 'e', 'f'])
+
+day_03 = pd.read_csv('digital_performance_platform_{year}{month}{day}.csv'.format(year=d3.year, month=d3_month, day=d3_day),
+
+                     names=['a', 'b', 'c', 'd', 'e', 'f'])
+
+day_04 = pd.read_csv('digital_performance_platform_{year}{month}{day}.csv'.format(year=d4.year, month=d4_month, day=d4_day),
+
+                     names=['a', 'b', 'c', 'd', 'e', 'f'])
+
+day_05 = pd.read_csv('digital_performance_platform_{year}{month}{day}.csv'.format(year=d5.year, month=d5_month, day=d5_day),
+
+                     names=['a', 'b', 'c', 'd', 'e', 'f'])
+
+day_06 = pd.read_csv('digital_performance_platform_{year}{month}{day}.csv'.format(year=d6.year, month=d6_month, day=d6_day),
+
+                     names=['a', 'b', 'c', 'd', 'e', 'f'])
+
+day_07 = pd.read_csv('digital_performance_platform_{year}{month}{day}.csv'.format(year=d7.year, month=d7_month, day=d7_day),
+
+                     names=['a', 'b', 'c', 'd', 'e', 'f'])
+
+ 
+
+ 
+#Check date range is correct
+
+print(d7_day,d6_day,d5_day,d4_day,d3_day,d2_day,d1_day)
+
+ 
+
+
+#Find count of all the rows
+
+ 
+
+day_01.shape
+
+
+ 
+
+#Check rows
+
+day_01.head()
+
+ 
+
+
+#See all header rows
+
+print(day_02.head(1))
+
+print(day_03.head(1))
+
+print(day_04.head(1))
+
+print(day_05.head(1))
+
+print(day_06.head(1))
+
+print(day_07.head(1))
+
+ 
+
+ 
+#Remove all headers from days 2 thru 7
+
+day_02 = day_02.tail(-1)
+
+day_03 = day_03.tail(-1)
+
+day_04 = day_04.tail(-1)
+
+day_05 = day_05.tail(-1)
+
+day_06 = day_06.tail(-1)
+
+day_07 = day_07.tail(-1)
+
+ 
+
+print(day_02.head(1))
+
+print(day_03.head(1))
+
+print(day_04.head(1))
+
+print(day_05.head(1))
+
+print(day_06.head(1))
+
+print(day_07.head(1))
+
+ 
+
+ 
+#Union dataframes together
+
+frames = [day_01, day_02, day_03, day_04, day_05, day_06, day_07]
+
+ 
+
+result = pd.concat(frames)
+
+ 
+
+ 
+#Check row and column counts
+
+result.shape
+
+ 
+
+ 
+#Check nulls in each column
+
+result.isna().sum()
+
+ 
+
+
+#Merge only non nulls from row
+
+result['a'] = result[['a','b','c','d','e','f']].apply(lambda x: ''.join(x[x.notnull()]), axis=1)
+
+ 
+
+ 
+#Check rows and columns are the same
+
+result.shape
+
+ 
+
+ 
+#Check to make sure columns merged
+
+result[result['b'].notnull()]
+
+ 
+
+ 
+#Removal of first row and other columns
+
+result = result.drop(columns=['b','c','d','e','f'])
+
+result.shape
+
+ 
+
+ 
+#One last header check
+
+result.head()
+
+ 
+
+ 
+#Check to see if any rows are broken up
+
+result[result['a'] == 'full%']
+
+ 
+
+ 
+#Convert to CSV where text to columns is the remaining step
+
+result.to_csv('digital_performance_platform_{year7}{month7}{day7}_{year1}{month1}{day1}.csv'.format(year1=d1.year, month1=d1_month, day1=d1_day,
+
+                                   year7=d7.year, month7=d7_month, day7=d7_day), index = False, header=False)
